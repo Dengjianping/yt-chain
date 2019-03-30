@@ -1,5 +1,5 @@
 # yt-chain
-[![Build Status](https://travis-ci.com/Dengjianping/minimal_block_chain.svg?branch=master)](https://travis-ci.com/Dengjianping/minimal_block_chain)
+[![Build Status](https://travis-ci.com/Dengjianping/yt-chain.svg?branch=master)](https://travis-ci.com/Dengjianping/yt-chain)
 
 yt-chain is just a toy of blockchain inspired by this article titled [Learn Blockchains by Building One](https://hackernoon.com/learn-blockchains-by-building-one-117428612f46?gi=8e1bb887685f). Originally, that's python based blockchain, so I want to use rust to implement a one, and giving some improvements to the rust based.
 
