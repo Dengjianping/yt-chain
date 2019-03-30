@@ -1,0 +1,30 @@
+sudo: required
+dist: xenial
+language: rust
+rust:
+  - nightly
+  
+cache:
+  cargo: true
+  apt: true
+
+matrix:
+  allow_failures:
+    - rust: nightly
+    
+env:
+  global:
+    # - RUSTFLAGS="-C link-dead-code"
+    - OPENSSL_VERSION=openssl-1.0.2
+    - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64"
+    - CUDA_HOME=/usr/local/cuda
+    - PATH="$PATH:/usr/local/cuda/bin"
+    
+
+before_install:
+  # - sudo add-apt-repository -y ppa:0k53d-karl-f830m/openssl
+  - sudo apt-get install -y openssl libssl-dev libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev
+  - wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.2.88-1_amd64.deb
+  - sudo dpkg -i cuda-repo-ubuntu1604_9.2.88-1_amd64.deb
+  - sudo apt-get -qq update
+  - sudo apt-get install cuda -y --allow-unauthenticated

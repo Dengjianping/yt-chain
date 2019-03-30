@@ -1,0 +1,16 @@
+[package]
+name = "gpu_mining"
+version = "0.1.0"
+authors = ["Dengjianping <djptux@gmail.com>"]
+build = "build.rs"
+edition = "2018"
+
+[build-dependencies]
+cmake = "0.1"
+
+[dependencies]
+libc = "0.2"
+
+[features]
+default = ["cuda"]
+cuda = []
