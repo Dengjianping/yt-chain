@@ -36,8 +36,8 @@ gpu_mining = { features = ["cuda"], path = "gpu_mining", optional = true }
 
 
 # sled needs nightly feature to be compiled on 32bit target like raspberry pi
-[target.'cfg(all(target_arch = "arm"))'.dependencies]
-sled = { version = "0.22", features = ["nightly", "compression"] }
+# [target.'cfg(all(target_arch = "arm"))'.dependencies]
+# sled = { version = "0.22", features = ["nightly", "compression"] }
 
 [features]
 default = ["sha256"]
