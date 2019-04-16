@@ -24,5 +24,7 @@ env:
 before_install:
   # - sudo add-apt-repository -y ppa:0k53d-karl-f830m/openssl
   - sudo apt-get install -y openssl libssl-dev libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev
+  - wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.2.88-1_amd64.deb
+  - sudo dpkg -i cuda-repo-ubuntu1604_9.2.88-1_amd64.deb
   - sudo apt-get -qq update
   - sudo apt-get install cuda -y --allow-unauthenticated
