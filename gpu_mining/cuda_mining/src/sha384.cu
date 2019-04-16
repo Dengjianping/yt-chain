@@ -1,6 +1,6 @@
 #include "sha.h"
 
-#define BLOCK 128
+
 #define rotate_right(a,b) (((a) >> (b)) | ((a) << (64-(b))))
 #define ch(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
 #define maj(x,y,z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
@@ -10,6 +10,7 @@
 #define ep_1(x) (rotate_right(x,19) ^ rotate_right(x,61) ^ ((x) >> 6))
 
 using uint_64 = unsigned long long int;
+
 
 __constant__ uint_64 H[8] = {
     0xcbbb9d5dc1059ed8,
@@ -46,25 +47,29 @@ __constant__ uint_64 K[80] = {
 };
 
 
-__constant__ uint_64 L[16] = { 0 };
+__global__ void sha384(const uint_64* __restrict__ d_input, uint_64* d_output, unsigned int length) {
+    int index = blockDim.x * blockIdx.x + threadIdx.x;
 
-__global__ void sha384(uint_64* d) {
-    //int index = blockDim.y * blockIdx.y + threadIdx.y;
+    uint_64 temp[80];
+    uint_64 h[8] = {
+		0xcbbb9d5dc1059ed8,
+		0x629a292a367cd507,
+		0x9159015a3070dd17,
+		0x152fecd8f70e5939,
+		0x67332667ffc00b31,
+		0x8eb44a8768581511,
+		0xdb0c2e0d64f98fa7,
+		0x47b5481dbefa4fa4
+	};
+	#pragma unroll
+    for (unsigned int i = 0; i < 16; ++i) temp[i] = d_input[length * i + index];
 
-    __shared__ uint_64 temp[80];
-    uint_64 h[8];
-#pragma unroll
-    for (unsigned int i = 0; i < 16; ++i) temp[i] = L[i];
-#pragma unroll
+	#pragma unroll
     for (unsigned int i = 16; i < 80; ++i) {
         temp[i] = ep_1(temp[i - 2]) + temp[i - 7] + ep_0(temp[i - 15]) + temp[i - 16];
     }
-    __syncthreads();
 
-
-#pragma unroll
-    for (unsigned int i = 0; i < 8; ++i) h[i] = H[i];
-#pragma unroll
+	#pragma unroll
     for (unsigned int i = 0; i < 80; ++i) {
         uint_64 z_d = h[7] + temp[i] + K[i] + ch(h[4], h[5], h[6]) + sigma_1(h[4]);
         uint_64 z_a = maj(h[0], h[1], h[2]) + sigma_0(h[0]);
@@ -79,59 +84,103 @@ __global__ void sha384(uint_64* d) {
         h[0] = z_a + z_d;
     }
 
-#pragma unroll
-    for (unsigned int i = 0; i < 8; ++i) {
-        h[i] += H[i];
-        // d[i] = h[i];
-    }
-
-    reinterpret_cast<ulonglong3*>(d)[0] = reinterpret_cast<ulonglong3*>(h)[0];
-    reinterpret_cast<ulonglong3*>(d)[1] = reinterpret_cast<ulonglong3*>(h)[1];
+	#pragma unroll
+	for (unsigned int i = 0; i < 6; ++i) {
+		d_output[length * i + index] = h[i] + H[i];
+	}
 }
 
-void paddle_bits_384(const std::string &_input) {
-    std::string c = "";
-    static uint_64 N[16];
 
-    for (unsigned int i = 0; i < _input.length(); ++i) {
-        c += std::bitset<8>(_input[i]).to_string();
+void paddle_bits_384(const std::string* _input, int elements_num, uint_64* d_input) {
+	uint_64* unaligned = new uint_64[16 * elements_num];
+	uint_64* aligned = new uint_64[16 * elements_num];
+
+    for (auto i = 0; i < elements_num; ++i) {
+    	std::string c = "";
+        for (auto j = 0; j < _input[i].length(); ++j) {
+            c += std::bitset<8>(_input[i][j]).to_string();
+        }
+
+        c += "10000000"; // 0x80
+        int len = c.length();
+        c += std::string(896 - len, '0');
+        std::string j = std::bitset<8>(_input[i].length() * 8).to_string();
+        c += std::string(128 - j.length(), '0');
+        c += j;
+
+        for (auto j = 0; j < 16; ++j) {
+        	unaligned[16 * i + j] = std::stoull(c.substr(64 * j, 64), nullptr, 2); // stride is 32
+        }
     }
 
-    c += "10000000"; // 0x80
-    int len = c.length();
-    c += std::string(896 - len, '0');
-    std::string j = std::bitset<8>(_input.length() * 8).to_string();
-    c += std::string(128 - j.length(), '0');
-    c += j;
-
-    for (unsigned int i = 0; i < 16; ++i) {
-        N[i] = std::stoll(c.substr(64 * i, 64), nullptr, 2);
+    for (auto i = 0; i < 16; ++i) {
+        for (auto j = 0; j < elements_num; ++j) {
+            // re-arrange data to avoid not aligning access global data
+            aligned[elements_num * i + j] = unaligned[16 * j + i];
+        }
     }
-    cudaMemcpyToSymbol(L, N, sizeof(uint_64) * 16); // update device constant variable
+
+    cudaMemcpy(d_input, aligned, sizeof(uint_64) * 16 * elements_num, cudaMemcpyHostToDevice);
+    delete[] unaligned;
+    delete[] aligned;
 }
 
-extern "C" const char* SHA384(const char *input) {
-    cudaDeviceReset(); // clear all existing allcations on device in case exception happens.
-    
-    paddle_bits_384(std::string(input));
-    dim3 block_size(1, 1);
-    dim3 grid_size(1);
+extern "C" const uint_64  SHA384(const uint_64 prev_proof, const char *proof_of_work) {
+	cudaDeviceProp device_prop;
+	cudaGetDeviceProperties(&device_prop, 0);
 
-    uint_64 *d_s;
-    cudaMalloc(&d_s, sizeof(uint_64) * 6);
+	int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
+	// hash how many elements each time
+	const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
 
-    sha384 << <1, 1 >> > (d_s);
-    cudaDeviceSynchronize();
+    std::string* un_paddled = new std::string[hash_elements];
+    uint_64* h_result = new uint_64[6 * hash_elements];
 
-    uint_64 h_s[6] = { 0 };
-    cudaMemcpy(h_s, d_s, sizeof(uint_64) * 6, cudaMemcpyDeviceToHost);
-    cudaFree(d_s);
+    uint_64 *d_input;
+    cudaMalloc(&d_input, sizeof(uint_64) * 16 * hash_elements);
 
-    std::stringstream stream;
-    for (unsigned int i = 0; i < 6; ++i) {
-        stream << std::hex << std::setfill('0') << std::setw(8) << h_s[i];
-    }
-    char *ch = new char[stream.str().length() + 1];
-    strcpy(ch, stream.str().c_str());
-    return ch;
+    uint_64 *d_output;
+    cudaMalloc(&d_output, sizeof(uint_64) * 6 *hash_elements);
+
+    dim3 block_size(threads_per_block, 1);
+    dim3 grid_size(hash_elements / threads_per_block, 1);
+
+    uint_64 caculated_num = 0;
+    uint_64 proof = 0;
+    while (true) {
+		bool found = false;
+    	for (auto i = caculated_num; i < caculated_num + hash_elements; ++i) {
+    		un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
+		}
+
+    	paddle_bits_384(un_paddled, hash_elements, d_input);
+
+    	sha384 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
+    	cudaDeviceSynchronize();
+
+		cudaMemcpy(h_result, d_output, sizeof(uint_64) * 6 * hash_elements, cudaMemcpyDeviceToHost);
+
+		for (auto i = 0; i < hash_elements; ++i) {
+			std::stringstream stream;
+			for (auto j = 0; j < 6; ++j) {
+				stream << std::hex << std::setfill('0') << std::setw(16) << h_result[hash_elements * j + i];
+			}
+			if (stream.str().rfind(proof_of_work, 0) == 0) {
+				proof = caculated_num + i;
+				caculated_num = 0;
+				found = true;
+				break;
+			}
+		}
+		if (found == true) {
+			break;
+		}
+		caculated_num += hash_elements;
+	}
+
+    delete[] h_result;
+    cudaFree(d_output);
+    cudaFree(d_input);
+
+    return proof;
 }
