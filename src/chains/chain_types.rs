@@ -1,5 +1,5 @@
 use bincode::{ serialize, deserialize };
-use juniper::{ FieldResult, GraphQLType };
+use juniper::{ FieldResult, GraphQLEnum, GraphQLObject, GraphQLInputObject, graphql_object };
 use serde_derive::{ Deserialize, Serialize };
 use std::{ time::{ self, SystemTime }, collections::HashSet };
 use sha2::{ Sha256, Digest };
@@ -42,7 +42,6 @@ impl Default for Block {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-// #[graphiql(description = "the whole block chain")]
 pub(crate) struct BlockChain {
     pub chain: Vec<Block>,
     pub current_transactions: Vec<Transaction>,
@@ -112,9 +111,18 @@ impl BlockChain {
     pub fn proof_of_work(&self, last_proof: u64) -> u64 {
         let mut proof = 0u64;
         
-        while !Self::valid_proof(last_proof, proof) {
-            proof += 1;
+        // either use gpu to mine blocks
+        if cfg!(feature = "cuda") {
+            #[cfg(feature = "cuda")]
+            {
+                proof = gpu_mining::cuda_sha256(last_proof, "0000").unwrap().into();
+            }
+        } else {
+            while !Self::valid_proof(last_proof, proof) {
+                proof += 1;
+            }
         }
+        
         proof
     }
     
@@ -179,19 +187,9 @@ impl BlockChain {
     pub fn valid_proof(last_proof: u64, proof: u64) -> bool {
         let guess = format!("{}{}", last_proof, proof);
         
-        if cfg!(feature="cuda") {
-            use gpu_mining;
-            if let Ok(hashed) = gpu_mining::cuda_sha256(guess) {
-                hashed.as_str().starts_with("0000")
-            } else {
-                false
-            }
-        } else {
-            let mut hasher = Sha256::new();
-            hasher.input(guess.as_bytes());
-            let hashed = format!("{:x}", hasher.result());
-            hashed.as_str().starts_with("0000")
-        }
-        
+        let mut hasher = Sha256::new();
+        hasher.input(guess.as_bytes());
+        let hashed = format!("{:x}", hasher.result());
+        hashed.as_str().starts_with("0000")
     }
 }
