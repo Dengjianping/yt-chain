@@ -49,9 +49,6 @@ pub(crate) fn run() -> utils::Result<()> {
                     .resource("/mine/", |r| {
                         r.method(http::Method::POST).with(views::mine);
                     })
-                    .resource("/gpu_mine/", |r| {
-                        r.method(http::Method::POST).with(views::gpu_mine);
-                    })
                     .resource("/chain/", |r| {
                         r.method(http::Method::GET).with(views::chain);
                     })
