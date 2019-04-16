@@ -19,6 +19,7 @@ Platforms supported
 ### Requirements
 1. Linux platform.
 2. Latest stable/nightly rust.
+   - If you want to run this project on raspberry pi, use nightly rust, and uncomment line 39, 40 in file **Cargo.toml** to enable "nightly" feature of sled, due to the bug [32-bit ARM compatibility](https://github.com/spacejam/sled/issues/145).
 3. CUDA installed(at least 8.0, and device is capable of compute capability at least 3.5).
    - This is for accelerating mining blocks, there're some implemented encryption algorithms like sha256/384/512.
 4. Cmake(at least 3.8).
