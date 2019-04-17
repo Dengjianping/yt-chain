@@ -5,7 +5,7 @@ use std::{ fs::File, io::{ BufReader, prelude::* } };
 
 use crate::chains::chain_types::{ BlockChain, Block };
 
-pub(crate) const NODE_IDENTIFIER: &'static str = "7d12866ef4a9404386df097afd43639f"; // any string you can place here
+pub(crate) const NODE_IDENTIFIER: &str = "7d12866ef4a9404386df097afd43639f"; // any string you can place here
 // easily to handle multiple error
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
 

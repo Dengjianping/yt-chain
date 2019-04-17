@@ -156,7 +156,7 @@ impl BlockChain {
     }
     
     pub fn resolve_conflicts(&mut self) -> utils::Result<bool> {
-        let ref neighbours = self.nodes;
+        let neighbours = &self.nodes;
         let mut new_chain: Vec<Block> = vec![];
         let mut max_length = self.chain.len();
         
@@ -168,7 +168,7 @@ impl BlockChain {
                 let responsed_chain: QueryBlockChain = response.json()?;
                 
                 let length = responsed_chain.length;
-                let ref chain = responsed_chain.chain;
+                let chain = &responsed_chain.chain;
                 
                 if length > max_length && self.valid_chain(chain) {
                     max_length = length;

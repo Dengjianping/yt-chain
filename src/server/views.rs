@@ -9,7 +9,7 @@ use crate::chains::chain_types::{ self, Transaction };
 use crate::utils::utils::NODE_IDENTIFIER;
 use super::actor::{ DbState, DbOperation, ReturnType };
 
-const KEY: &'static str = "chain";
+const KEY: &str = "chain";
 
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -111,7 +111,7 @@ pub(crate) fn register_nodes(req: HttpRequest<DbState>) -> FutureResponse<HttpRe
             let mut chains = req.state().db.send(query).wait();
             
             if let Ok(Ok(ReturnType::BLOCKCHAIN(ref mut ch))) = chains {
-                let ref _nodes = nodes.nodes;
+                let _nodes = &nodes.nodes;
                 
                 // register every node
                 // _nodes.iter().map(|node| ch.register_node(node)); // cannot use map due to iterator is a lazy executor
