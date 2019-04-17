@@ -13,7 +13,7 @@ Platforms supported
 - [**rust**](https://www.rust-lang.org/). A systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety.
 - [**actix-web**](https://github.com/actix/actix-web). A blazingly fast **asynchronous** web framework based on Rust.
 - [**sled**](https://github.com/spacejam/sled). This is a lock-free embedded database, purely written by rust, having high performance and easy usage, etc.
-- [**cuda**](https://developer.nvidia.com/cuda-downloads). A parallel computing platform and programming model that enables dramatic increases in computing performance by harnessing the power of the graphics processing unit (GPU). Use gpu to accelerate mining block instead of cpu.
+- [**CUDA**](https://developer.nvidia.com/cuda-downloads). A parallel computing platform and programming model that enables dramatic increases in computing performance by harnessing the power of the graphics processing unit (GPU). Use gpu to accelerate mining block instead of cpu.
 
 
 ### Requirements
@@ -22,7 +22,8 @@ Platforms supported
    - If you want to run this project on raspberry pi, use nightly rust, and uncomment line 39, 40 in file **Cargo.toml** to enable "nightly" feature of sled, due to the bug [32-bit ARM compatibility](https://github.com/spacejam/sled/issues/145).
 3. CUDA installed(at least 8.0, and device is capable of compute capability at least 3.5).
    - This is for accelerating mining blocks, there're some implemented encryption algorithms like sha256/384/512.
-4. Cmake(at least 3.8).
+     It's optional, if you don't use GPU to mine blocks.
+4. CMake(at least 3.8).
 
 
 ### Build && Run
