@@ -52,24 +52,24 @@ __global__ void sha384(const uint_64* __restrict__ d_input, uint_64* d_output, u
 
     uint_64 temp[80];
     uint_64 h[8] = {
-		0xcbbb9d5dc1059ed8,
-		0x629a292a367cd507,
-		0x9159015a3070dd17,
-		0x152fecd8f70e5939,
-		0x67332667ffc00b31,
-		0x8eb44a8768581511,
-		0xdb0c2e0d64f98fa7,
-		0x47b5481dbefa4fa4
-	};
-	#pragma unroll
+        0xcbbb9d5dc1059ed8,
+        0x629a292a367cd507,
+        0x9159015a3070dd17,
+        0x152fecd8f70e5939,
+        0x67332667ffc00b31,
+        0x8eb44a8768581511,
+        0xdb0c2e0d64f98fa7,
+        0x47b5481dbefa4fa4
+    };
+    #pragma unroll
     for (unsigned int i = 0; i < 16; ++i) temp[i] = d_input[length * i + index];
 
-	#pragma unroll
+    #pragma unroll
     for (unsigned int i = 16; i < 80; ++i) {
         temp[i] = ep_1(temp[i - 2]) + temp[i - 7] + ep_0(temp[i - 15]) + temp[i - 16];
     }
 
-	#pragma unroll
+    #pragma unroll
     for (unsigned int i = 0; i < 80; ++i) {
         uint_64 z_d = h[7] + temp[i] + K[i] + ch(h[4], h[5], h[6]) + sigma_1(h[4]);
         uint_64 z_a = maj(h[0], h[1], h[2]) + sigma_0(h[0]);
@@ -84,19 +84,19 @@ __global__ void sha384(const uint_64* __restrict__ d_input, uint_64* d_output, u
         h[0] = z_a + z_d;
     }
 
-	#pragma unroll
-	for (unsigned int i = 0; i < 6; ++i) {
-		d_output[length * i + index] = h[i] + H[i];
-	}
+    #pragma unroll
+    for (unsigned int i = 0; i < 6; ++i) {
+        d_output[length * i + index] = h[i] + H[i];
+    }
 }
 
 
 void paddle_bits_384(const std::string* _input, int elements_num, uint_64* d_input) {
-	uint_64* unaligned = new uint_64[16 * elements_num];
-	uint_64* aligned = new uint_64[16 * elements_num];
+    uint_64* unaligned = new uint_64[16 * elements_num];
+    uint_64* aligned = new uint_64[16 * elements_num];
 
     for (auto i = 0; i < elements_num; ++i) {
-    	std::string c = "";
+        std::string c = "";
         for (auto j = 0; j < _input[i].length(); ++j) {
             c += std::bitset<8>(_input[i][j]).to_string();
         }
@@ -109,7 +109,7 @@ void paddle_bits_384(const std::string* _input, int elements_num, uint_64* d_inp
         c += j;
 
         for (auto j = 0; j < 16; ++j) {
-        	unaligned[16 * i + j] = std::stoull(c.substr(64 * j, 64), nullptr, 2); // stride is 32
+            unaligned[16 * i + j] = std::stoull(c.substr(64 * j, 64), nullptr, 2); // stride is 32
         }
     }
 
@@ -126,12 +126,12 @@ void paddle_bits_384(const std::string* _input, int elements_num, uint_64* d_inp
 }
 
 extern "C" const uint_64  SHA384(const uint_64 prev_proof, const char *proof_of_work) {
-	cudaDeviceProp device_prop;
-	cudaGetDeviceProperties(&device_prop, 0);
+    cudaDeviceProp device_prop;
+    cudaGetDeviceProperties(&device_prop, 0);
 
-	int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
-	// hash how many elements each time
-	const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
+    int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
+    // hash how many elements each time
+    const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
 
     std::string* un_paddled = new std::string[hash_elements];
     uint_64* h_result = new uint_64[6 * hash_elements];
@@ -148,35 +148,35 @@ extern "C" const uint_64  SHA384(const uint_64 prev_proof, const char *proof_of_
     uint_64 caculated_num = 0;
     uint_64 proof = 0;
     while (true) {
-		bool found = false;
-    	for (auto i = caculated_num; i < caculated_num + hash_elements; ++i) {
-    		un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
-		}
+        bool found = false;
+        for (auto i = caculated_num; i < caculated_num + hash_elements; ++i) {
+            un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
+        }
 
-    	paddle_bits_384(un_paddled, hash_elements, d_input);
+        paddle_bits_384(un_paddled, hash_elements, d_input);
 
-    	sha384 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
-    	cudaDeviceSynchronize();
+        sha384 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
+        cudaDeviceSynchronize();
 
-		cudaMemcpy(h_result, d_output, sizeof(uint_64) * 6 * hash_elements, cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_result, d_output, sizeof(uint_64) * 6 * hash_elements, cudaMemcpyDeviceToHost);
 
-		for (auto i = 0; i < hash_elements; ++i) {
-			std::stringstream stream;
-			for (auto j = 0; j < 6; ++j) {
-				stream << std::hex << std::setfill('0') << std::setw(16) << h_result[hash_elements * j + i];
-			}
-			if (stream.str().rfind(proof_of_work, 0) == 0) {
-				proof = caculated_num + i;
-				caculated_num = 0;
-				found = true;
-				break;
-			}
-		}
-		if (found == true) {
-			break;
-		}
-		caculated_num += hash_elements;
-	}
+        for (auto i = 0; i < hash_elements; ++i) {
+            std::stringstream stream;
+            for (auto j = 0; j < 6; ++j) {
+                stream << std::hex << std::setfill('0') << std::setw(16) << h_result[hash_elements * j + i];
+            }
+            if (stream.str().rfind(proof_of_work, 0) == 0) {
+                proof = caculated_num + i;
+                caculated_num = 0;
+                found = true;
+                break;
+            }
+        }
+        if (found == true) {
+            break;
+        }
+        caculated_num += hash_elements;
+    }
 
     delete[] h_result;
     cudaFree(d_output);

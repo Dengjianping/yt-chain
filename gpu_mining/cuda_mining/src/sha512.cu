@@ -54,15 +54,15 @@ __global__ void sha512(const uint_64* __restrict__ d_input, uint_64* d_output, u
 
     uint_64 temp[80];
     uint_64 h[8] = {
-		0x6a09e667f3bcc908,
-		0xbb67ae8584caa73b,
-		0x3c6ef372fe94f82b,
-		0xa54ff53a5f1d36f1,
-		0x510e527fade682d1,
-		0x9b05688c2b3e6c1f,
-		0x1f83d9abfb41bd6b,
-		0x5be0cd19137e2179
-	}; // long long takes 2 register files
+        0x6a09e667f3bcc908,
+        0xbb67ae8584caa73b,
+        0x3c6ef372fe94f82b,
+        0xa54ff53a5f1d36f1,
+        0x510e527fade682d1,
+        0x9b05688c2b3e6c1f,
+        0x1f83d9abfb41bd6b,
+        0x5be0cd19137e2179
+    }; // long long takes 2 register files
 #pragma unroll
     for (unsigned int i = 0; i < 16; ++i) temp[i] = d_input[length * i + index];
 #pragma unroll
@@ -86,18 +86,18 @@ __global__ void sha512(const uint_64* __restrict__ d_input, uint_64* d_output, u
     }
 
 #pragma unroll
-	for (unsigned int i = 0; i < 8; ++i) {
-		d_output[length * i + index] = h[i] + H[i];
-	}
+    for (unsigned int i = 0; i < 8; ++i) {
+        d_output[length * i + index] = h[i] + H[i];
+    }
 }
 
 
 void paddle_bits_512(const std::string* _input, int elements_num, uint_64* d_input) {
-	uint_64* unaligned = new uint_64[16 * elements_num];
-	uint_64* aligned = new uint_64[16 * elements_num];
+    uint_64* unaligned = new uint_64[16 * elements_num];
+    uint_64* aligned = new uint_64[16 * elements_num];
 
     for (auto i = 0; i < elements_num; ++i) {
-    	std::string c = "";
+        std::string c = "";
         for (auto j = 0; j < _input[i].length(); ++j) {
             c += std::bitset<8>(_input[i][j]).to_string();
         }
@@ -110,7 +110,7 @@ void paddle_bits_512(const std::string* _input, int elements_num, uint_64* d_inp
         c += j;
 
         for (auto j = 0; j < 16; ++j) {
-        	unaligned[16 * i + j] = std::stoull(c.substr(64 * j, 64), nullptr, 2); // stride is 32
+            unaligned[16 * i + j] = std::stoull(c.substr(64 * j, 64), nullptr, 2); // stride is 32
         }
     }
 
@@ -127,12 +127,12 @@ void paddle_bits_512(const std::string* _input, int elements_num, uint_64* d_inp
 }
 
 extern "C" const uint_64  SHA512(const uint_64 prev_proof, const char *proof_of_work) {
-	cudaDeviceProp device_prop;
-	cudaGetDeviceProperties(&device_prop, 0);
+    cudaDeviceProp device_prop;
+    cudaGetDeviceProperties(&device_prop, 0);
 
-	int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
-	// hash how many elements each time
-	const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
+    int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
+    // hash how many elements each time
+    const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
 
 
     std::string* un_paddled = new std::string[hash_elements];
@@ -150,35 +150,35 @@ extern "C" const uint_64  SHA512(const uint_64 prev_proof, const char *proof_of_
     uint_64 caculated_num = 0;
     uint_64 proof = 0;
     while (true) {
-		bool found = false;
-    	for (auto i = caculated_num; i < caculated_num + hash_elements; ++i) {
-    		un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
-		}
+        bool found = false;
+        for (auto i = caculated_num; i < caculated_num + hash_elements; ++i) {
+            un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
+        }
 
-    	paddle_bits_512(un_paddled, hash_elements, d_input);
+        paddle_bits_512(un_paddled, hash_elements, d_input);
 
-    	sha512 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
-    	cudaDeviceSynchronize();
+        sha512 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
+        cudaDeviceSynchronize();
 
-		cudaMemcpy(h_result, d_output, sizeof(uint_64) * 8 * hash_elements, cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_result, d_output, sizeof(uint_64) * 8 * hash_elements, cudaMemcpyDeviceToHost);
 
-		for (auto i = 0; i < hash_elements; ++i) {
-			std::stringstream stream;
-			for (auto j = 0; j < 8; ++j) {
-				stream << std::hex << std::setfill('0') << std::setw(16) << h_result[hash_elements * j + i];
-			}
-			if (stream.str().rfind(proof_of_work, 0) == 0) {
-				proof = caculated_num + i;
-				caculated_num = 0;
-				found = true;
-				break;
-			}
-		}
-		if (found == true) {
-			break;
-		}
-		caculated_num += hash_elements;
-	}
+        for (auto i = 0; i < hash_elements; ++i) {
+            std::stringstream stream;
+            for (auto j = 0; j < 8; ++j) {
+                stream << std::hex << std::setfill('0') << std::setw(16) << h_result[hash_elements * j + i];
+            }
+            if (stream.str().rfind(proof_of_work, 0) == 0) {
+                proof = caculated_num + i;
+                caculated_num = 0;
+                found = true;
+                break;
+            }
+        }
+        if (found == true) {
+            break;
+        }
+        caculated_num += hash_elements;
+    }
 
     delete[] h_result;
     cudaFree(d_output);
