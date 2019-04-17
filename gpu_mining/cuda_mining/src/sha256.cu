@@ -6,31 +6,31 @@ the reference: https://en.wikipedia.org/wiki/MD5
 
 
 __inline__ __device__ unsigned int rotate_right(unsigned int a, unsigned int b) {
-	return __funnelshift_r(a, a, b);
+    return __funnelshift_r(a, a, b);
 }
 
 __inline__ __device__ unsigned int ch(unsigned int x, unsigned int y, unsigned int z) {
-	return (x & y) ^ (~x & z);
+    return (x & y) ^ (~x & z);
 }
 
 __inline__ __device__ unsigned int maj(unsigned int x, unsigned int y, unsigned int z) {
-	return (x & y) ^ (x & z) ^ (y & z);
+    return (x & y) ^ (x & z) ^ (y & z);
 }
 
 __inline__ __device__ unsigned int sigma_0(unsigned int x) {
-	return rotate_right(x, 2) ^ rotate_right(x, 13) ^ rotate_right(x, 22);
+    return rotate_right(x, 2) ^ rotate_right(x, 13) ^ rotate_right(x, 22);
 }
 
 __inline__ __device__ unsigned int sigma_1(unsigned int x) {
-	return rotate_right(x, 6) ^ rotate_right(x, 11) ^ rotate_right(x, 25);
+    return rotate_right(x, 6) ^ rotate_right(x, 11) ^ rotate_right(x, 25);
 }
 
 __inline__ __device__ unsigned int ep_0(unsigned int x) {
-	return rotate_right(x, 7) ^ rotate_right(x, 18) ^ (x >> 3);
+    return rotate_right(x, 7) ^ rotate_right(x, 18) ^ (x >> 3);
 }
 
 __inline__ __device__ unsigned int ep_1(unsigned int x) {
-	return rotate_right(x, 17) ^ rotate_right(x, 19) ^ (x >> 10);
+    return rotate_right(x, 17) ^ rotate_right(x, 19) ^ (x >> 10);
 }
 
 __constant__ unsigned int H[8] = {
@@ -73,33 +73,33 @@ __global__ void sha256(const unsigned int* __restrict__ d_input, unsigned int* _
     };
 
     if (index < length) {
-		#pragma unroll
-		for (unsigned int i = 0; i < 16; ++i) temp[i] = d_input[length * i + index];
+        #pragma unroll
+        for (unsigned int i = 0; i < 16; ++i) temp[i] = d_input[length * i + index];
 
-		#pragma unroll
-		for (unsigned int i = 16; i < 64; ++i) {
-			temp[i] = ep_1(temp[i - 2]) + temp[i - 7] + ep_0(temp[i - 15]) + temp[i - 16];
-		}
+        #pragma unroll
+        for (unsigned int i = 16; i < 64; ++i) {
+            temp[i] = ep_1(temp[i - 2]) + temp[i - 7] + ep_0(temp[i - 15]) + temp[i - 16];
+        }
 
-		#pragma unroll
-		for (unsigned int i = 0; i < 64; ++i) {
-			unsigned int z_d = h[7] + temp[i] + K[i] + ch(h[4], h[5], h[6]) + sigma_1(h[4]);
-			unsigned int z_a = maj(h[0], h[1], h[2]) + sigma_0(h[0]);
+        #pragma unroll
+        for (unsigned int i = 0; i < 64; ++i) {
+            unsigned int z_d = h[7] + temp[i] + K[i] + ch(h[4], h[5], h[6]) + sigma_1(h[4]);
+            unsigned int z_a = maj(h[0], h[1], h[2]) + sigma_0(h[0]);
 
-			h[7] = h[6];
-			h[6] = h[5];
-			h[5] = h[4];
-			h[4] = h[3] + z_d;
-			h[3] = h[2];
-			h[2] = h[1];
-			h[1] = h[0];
-			h[0] = z_a + z_d;
-		}
+            h[7] = h[6];
+            h[6] = h[5];
+            h[5] = h[4];
+            h[4] = h[3] + z_d;
+            h[3] = h[2];
+            h[2] = h[1];
+            h[1] = h[0];
+            h[0] = z_a + z_d;
+        }
 
-		#pragma unroll
-		for (unsigned int i = 0; i < 8; ++i) {
-			d_output[length * i + index] = h[i] + H[i];
-		}
+        #pragma unroll
+        for (unsigned int i = 0; i < 8; ++i) {
+            d_output[length * i + index] = h[i] + H[i];
+        }
     }
 }
 
@@ -108,7 +108,7 @@ void paddle_bits_256(const std::string* _input, int elements_num, unsigned int* 
     unsigned int* aligned = new unsigned int[16 * elements_num];
 
     for (unsigned int i = 0; i < elements_num; ++i) {
-    	std::string c = "";
+        std::string c = "";
         for (unsigned int j = 0; j < _input[i].length(); ++j) {
             c += std::bitset<8>(_input[i][j]).to_string();
         }
@@ -121,7 +121,7 @@ void paddle_bits_256(const std::string* _input, int elements_num, unsigned int* 
         c += j;
 
         for (unsigned int j = 0; j < 16; ++j) {
-        	unaligned[16 * i + j] = std::stoll(c.substr(32 * j, 32), nullptr, 2); // stride is 32
+            unaligned[16 * i + j] = std::stoll(c.substr(32 * j, 32), nullptr, 2); // stride is 32
         }
     }
 
@@ -139,12 +139,12 @@ void paddle_bits_256(const std::string* _input, int elements_num, unsigned int* 
 
 
 extern "C" const unsigned int  SHA256(const unsigned int prev_proof, const char *proof_of_work) {
-	cudaDeviceProp device_prop;
-	cudaGetDeviceProperties(&device_prop, 0);
+    cudaDeviceProp device_prop;
+    cudaGetDeviceProperties(&device_prop, 0);
 
-	int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
-	// hash how many elements each time
-	const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
+    int threads_per_block = device_prop.maxThreadsPerMultiProcessor / device_prop.warpSize;
+    // hash how many elements each time
+    const int hash_elements = device_prop.maxThreadsPerMultiProcessor * device_prop.multiProcessorCount * 50;
 
     std::string* un_paddled = new std::string[hash_elements];
     unsigned int* h_result = new unsigned int[8 * hash_elements];
@@ -161,35 +161,35 @@ extern "C" const unsigned int  SHA256(const unsigned int prev_proof, const char 
     unsigned int caculated_num = 0;
     unsigned int proof = 0;
     while (true) {
-		bool found = false;
-    	for (unsigned int i = caculated_num; i < caculated_num + hash_elements; ++i) {
-    		un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
-		}
+        bool found = false;
+        for (unsigned int i = caculated_num; i < caculated_num + hash_elements; ++i) {
+            un_paddled[i - caculated_num] = std::to_string(prev_proof) + std::to_string(i);
+        }
 
-    	paddle_bits_256(un_paddled, hash_elements, d_input);
+        paddle_bits_256(un_paddled, hash_elements, d_input);
 
-    	sha256 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
-    	cudaDeviceSynchronize();
+        sha256 <<<grid_size, block_size >> > (d_input, d_output, hash_elements);
+        cudaDeviceSynchronize();
 
-		cudaMemcpy(h_result, d_output, sizeof(unsigned int) * 8 * hash_elements, cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_result, d_output, sizeof(unsigned int) * 8 * hash_elements, cudaMemcpyDeviceToHost);
 
-		for (auto i = 0; i < hash_elements; ++i) {
-			std::stringstream stream;
-			for (auto j = 0; j < 8; ++j) {
-				stream << std::hex << std::setfill('0') << std::setw(8) << h_result[hash_elements * j + i];
-			}
-			if (stream.str().rfind(proof_of_work, 0) == 0) {
-				proof = caculated_num + i;
-				caculated_num = 0;
-				found = true;
-				break;
-			}
-		}
-		if (found == true) {
-			break;
-		}
-		caculated_num += hash_elements;
-	}
+        for (auto i = 0; i < hash_elements; ++i) {
+            std::stringstream stream;
+            for (auto j = 0; j < 8; ++j) {
+                stream << std::hex << std::setfill('0') << std::setw(8) << h_result[hash_elements * j + i];
+            }
+            if (stream.str().rfind(proof_of_work, 0) == 0) {
+                proof = caculated_num + i;
+                caculated_num = 0;
+                found = true;
+                break;
+            }
+        }
+        if (found == true) {
+            break;
+        }
+        caculated_num += hash_elements;
+    }
 
     delete[] h_result;
     cudaFree(d_output);
